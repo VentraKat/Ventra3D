@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Ventra3D</title>
+<link rel="icon" href="logo.png">
+    <style>
+        body {
+            margin: 0; padding: 0; background-color: black;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; color: white;
+            font-family: consolas;
+            overflow: hidden; user-select: none;
+        }
+        
+        #left-panel {
+            position: absolute; left: 0; top: 0; bottom: 0; width: 300px;
+            background: rgba(30, 25, 20, 0.95); z-index: 100;
+            overflow-y: auto; padding: 15px; box-sizing: border-box;
+            font-size: 13px; border-right: 4px solid #4A2E1B;
+            user-select: auto;
+        }
+        #left-panel::-webkit-scrollbar { width: 8px; }
+        #left-panel::-webkit-scrollbar-thumb { background: #4A2E1B; }
+        
+        .panel-section { margin-bottom: 20px; border-bottom: 1px dashed #666; padding-bottom: 15px; }
+        .panel-section:last-child { border-bottom: none; }
+        .section-title { color: #FFFDD0; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; font-size: 14px; text-align: center; background: #3a2212; padding: 4px;}
+        
+        #left-panel button {
+            width: 100%; margin-bottom: 5px; padding: 6px; 
+            background: #4A2E1B; color: #FFFDD0; border: 2px solid #2a1a0f; 
+            cursor: pointer; font-family: inherit; font-weight: bold;
+        }
+        #left-panel button:hover { background: #6A4E3B; border-color: #FFFDD0; }
+        #left-panel button:active { background: #8a6a4a; }
+        
+        #left-panel input[type="text"], #left-panel input[type="number"], #left-panel select {
+            width: 100%; margin-bottom: 8px; padding: 4px; box-sizing: border-box;
+            background: #222; color: #fff; border: 1px solid #555; font-family: inherit;
+        }
+        #left-panel input[type="color"] { width: 100%; height: 30px; border: none; padding: 0; cursor: pointer; margin-bottom: 8px;}
+        #left-panel label { display: block; margin-bottom: 8px; cursor: pointer; }
+        
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; text-align: center; margin-bottom: 5px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 5px;}
+        .grid-3 button, .grid-2 button { margin-bottom: 0; padding: 4px 0; }
+        .axis-label { font-size: 11px; color: #ccc; margin-bottom: 2px; font-weight: bold; }
+
+        #game-container {
+            position: relative; 
+            width: 800px; height: 600px;
+            background-color: #A7B7FF;
+
+        }
+        canvas {
+            width: 100% !important; height: 100% !important;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 8px; height: 8px; background-color: white;
+            transform: translate(-50%, -50%);
+            pointer-events: none; z-index: 5; mix-blend-mode: difference;
+            display: none; 
+        }
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 20; cursor: pointer;
+            text-align: center; text-shadow: 2px 2px 0px #000;
+        }
+        #start-screen h1 { margin: 0 0 10px 0; color: #FFFDD0; }
+        #ui {
+            position: absolute; bottom: -60px; left: 0; width: 100%;
+            background: rgba(74, 46, 27, 0.8);
+            padding: 5px 0; text-align: center; font-weight: bold; font-size: 14px;
+            color: #FFFDD0; z-index: 10; pointer-events: none;
+        }
+
+.logod {
+    width: 60px;
+    height: 60px;
+    background-image: url("logob.png");
+    background-size: 100% 100%;
+    position: absolute;
+    bottom: 20px; 
+    right: 30px; 
+    z-index: 1120;
+    pointer-events: none;
+   
+}
+
+#rec-indicator {
+    position: absolute; 
+    top: 20px; left: 20px; 
+    color: #ff3333; 
+    font-weight: bold; font-size: 18px;
+    display: none; 
+    z-index: 2000; 
+    text-shadow: 2px 2px 0px #000;
+    pointer-events: none;
+    animation: blink 1s infinite;
+}
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0; }
+    100% { opacity: 1; }
+}
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
+</head>
+<body>
+
+<div id="left-panel">
+    <div class="panel-section">
+        <div class="section-title">Сохранение / Загрузка</div>
+        <button onclick="saveWorld()" style="background: #285;">Сохранить Мир (JSON)</button>
+        <input type="file" id="load-world-file" accept=".json" style="display:none" onchange="loadWorld(event)">
+        <button onclick="document.getElementById('load-world-file').click()" style="background: #528;">Загрузить Мир</button>
+    </div>
+
+    <div class="panel-section">
+        <div class="section-title">Глобальные</div>
+        <button onclick="toggleDayNight()">Переключить День / Ночь</button>
+    </div>
+
+    <div class="panel-section">
+        <div class="section-title">Создать Объект</div>
+        <div class="grid-2">
+            <button onclick="spawnObject('cube')">Куб [1]</button>
+            <button onclick="spawnObject('sphere')">Зерк. Шар [2]</button>
+            <button onclick="spawnObject('cylinder')">Цилиндр [3]</button>
+            <button onclick="spawnObject('triangle')">Пирамида [4]</button>
+            <button onclick="spawnObject('trapezoid')">Трапеция [5]</button>
+            <button onclick="spawnObject('icosahedron')">Икосаэдр [6]</button>
+            <button onclick="spawnObject('normal_sphere')" style="background: #3c5c3c;">Обыч. Шар</button>
+            <button onclick="spawnObject('cone')" style="background: #3c5c3c;">Конус</button>
+        </div>
+    </div>
+
+    
+    <div class="panel-section">
+        <div class="section-title">Создать 3D Текст</div>
+        <input type="text" id="ui-text-input" placeholder="Введите текст...">
+        Шрифт: 
+        <select id="ui-text-font">
+            <option value="helvetiker">Helvetiker</option>
+            <option value="optimer">Optimer</option>
+        </select>
+        Размер шрифта: <input type="number" id="ui-text-size" value="1.5" step="0.1">
+        Цвет: <input type="color" id="ui-text-color" value="#FFD700">
+        <label><input type="checkbox" id="ui-text-reflect"> Сделать зеркальным</label>
+        <button onclick="spawn3DText()">Поставить Текст</button>
+    </div>
+
+    <div class="panel-section">
+        <div class="section-title">Действия с Объектом</div>
+        <select id="object-selector" onchange="selectFromDropdown(this.value)">
+            <option value="">-- Ничего не выбрано --</option>
+        </select>
+        <div class="grid-2">
+            <button onclick="setSelectedObject(null)" style="background: #555;">Снять выбор</button>
+            <button onclick="deleteSelectedObject()" style="background: #800;">Удалить</button>
+            <button onclick="cloneSelectedObject()" style="background: #285;">Клонировать</button>
+            <button onclick="toggleSelectedMirror()" style="background: #258;">Зеркало Вкл/Выкл</button>
+        </div>
+    </div>
+
+    <div class="panel-section">
+        <div class="section-title">Перемещение</div>
+        <div class="grid-3">
+            <div class="axis-label">Ось X</div><div class="axis-label">Ось Y</div><div class="axis-label">Ось Z</div>
+            <button onclick="uiTransform('move', 'x', 0.5)">X +</button>
+            <button onclick="uiTransform('move', 'y', 0.5)">Y +</button>
+            <button onclick="uiTransform('move', 'z', 0.5)">Z +</button>
+            
+            <button onclick="uiTransform('move', 'x', -0.5)">X -</button>
+            <button onclick="uiTransform('move', 'y', -0.5)">Y -</button>
+            <button onclick="uiTransform('move', 'z', -0.5)">Z -</button>
+        </div>
+    </div>
+
+    <div class="panel-section">
+        <div class="section-title">Поворот (Rotate)</div>
+        <div class="grid-3">
+            <button onclick="uiTransform('rot', 'x', 1)">Rot X+</button>
+            <button onclick="uiTransform('rot', 'y', 1)">Rot Y+</button>
+            <button onclick="uiTransform('rot', 'z', 1)">Rot Z+</button>
+            
+            <button onclick="uiTransform('rot', 'x', -1)">Rot X-</button>
+            <button onclick="uiTransform('rot', 'y', -1)">Rot Y-</button>
+            <button onclick="uiTransform('rot', 'z', -1)">Rot Z-</button>
+        </div>
+    </div>
+
+    <div class="panel-section">
+        <div class="section-title">Размер (Scale)</div>
+        <div class="grid-2">
+            <button onclick="scaleSelectedObject(1.1)">Увеличить Всё (+)</button>
+            <button onclick="scaleSelectedObject(0.9)">Уменьшить Всё (-)</button>
+        </div>
+        <div class="grid-3" style="margin-top: 5px;">
+            <button onclick="uiTransform('scale', 'x', 1)">Scl X +</button>
+            <button onclick="uiTransform('scale', 'y', 1)">Scl Y +</button>
+            <button onclick="uiTransform('scale', 'z', 1)">Scl Z +</button>
+            
+            <button onclick="uiTransform('scale', 'x', -1)">Scl X -</button>
+            <button onclick="uiTransform('scale', 'y', -1)">Scl Y -</button>
+            <button onclick="uiTransform('scale', 'z', -1)">Scl Z -</button>
+        </div>
+    </div>
+
+    <div class="panel-section">
+        <div class="section-title">Материалы и Текстуры</div>
+        <div style="margin-bottom: 5px;">Цвет: <input type="color" id="ui-obj-color" onchange="applyColorToSelected(this.value)"></div>
+        <div style="margin-bottom: 5px;">Своя картинка: <input type="file" id="ui-obj-texture" accept="image/*" onchange="applyTextureToSelected(event)"></div>
+        <button onclick="applyCheckerboardToSelected()">Клетчатое поле (Роз/Чер)</button>
+        <button onclick="toggleMoireOnSelected()">Включить/Выкл Муар</button>
+    </div>
+</div>
+
+<div id="game-container">
+<div class="logod"></div>
+<div id="rec-indicator">⏺ REC</div>
+    <div id="crosshair"></div>
+    <div id="start-screen">
+        <h1>КЛИКНИТЕ ДЛЯ СТАРТА</h1>
+        <p><b>WASD</b> - Ходить | <b>Пробел/Shift</b> - Летать</p>
+        <p><b>F5</b> - Смена камеры (1-е / 3-е сзади / 3-е спереди)</p>
+        <p><b>F4</b> - Скрыть/Показать панель | <b>F6</b> - Скрыть/Показать нижний текст</p>
+        <p><b>ESC</b> - Пауза (и доступ к левой панели)</p>
+    </div>
+    
+    <div id="ui">Ожидание старта...</div>
+</div>
+
+<script>
+    // --- ЗВУКИ ---
+function createGameAudio(src) {
+    const snd = new Audio(src);
+    if (window.location.protocol !== 'file:') {
+        snd.crossOrigin = "anonymous";
+    }
+    return snd;
+}
+
+const sndStart = createGameAudio('start.mp3');
+const sndPlace = createGameAudio('place.mp3');
+const sndBreak = createGameAudio('break.mp3');
+const sndAction = createGameAudio('action.mp3');
+
+    function playSound(snd) {
+        snd.currentTime = 0;
+        snd.play().catch(() => {});
+    }
+    function playActionSound() { playSound(sndAction); }
+
+    // --- ЗАГРУЗКА ШРИФТОВ ---
+    const fontLoader = new THREE.FontLoader();
+    const loadedFonts = { helvetiker: null, optimer: null };
+    fontLoader.load('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/helvetiker_regular.typeface.json', (f) => loadedFonts.helvetiker = f);
+    fontLoader.load('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/optimer_regular.typeface.json', (f) => loadedFonts.optimer = f);
+
+    // --- СЦЕНА И РЕНДЕР ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#A7B7FF');
+    scene.fog = new THREE.Fog('#A7B7FF', 1, 60);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+    renderer.setSize(320, 240);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.BasicShadowMap; // без размытия, но форма точная // Жесткие (без размытия) края теней
+    document.getElementById('game-container').appendChild(renderer.domElement);
+
+    const camera = new THREE.PerspectiveCamera(75, 800 / 600, 0.1, 1000);
+    scene.add(camera);
+    const frontCamera = new THREE.PerspectiveCamera(75, 800 / 600, 0.1, 1000);
+    scene.add(frontCamera);
+
+    // Окружающий свет на 0.2 дает непроглядность тени на уровне ~80% (эмуляция rgba(0,0,0,0.5))
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+    scene.add(ambientLight);
+    
+    // Делаем направленный свет чуть ярче для компенсации
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(15, 30, 15);
+    dirLight.castShadow = true;
+    
+    // Низкое разрешение (512 или 256) создает пиксельную лесенку у тени,
+    // а широкие границы камеры (-100 до 100) позволяют тени никогда не пропадать
+    dirLight.shadow.mapSize.width = 10000;
+    dirLight.shadow.mapSize.height = 10000;
+    dirLight.shadow.camera.left = -100;
+    dirLight.shadow.camera.right = 100;
+    dirLight.shadow.camera.top = 100;
+    dirLight.shadow.camera.bottom = -100;
+    dirLight.shadow.camera.near = 0.1;
+    dirLight.shadow.camera.far = 200;
+    scene.add(dirLight);
+
+    const collisionObjects = [];
+    let editableObjects = [];
+    const raycaster = new THREE.Raycaster();
+    const screenCenter = new THREE.Vector2(0, 0);
+    const uiElement = document.getElementById('ui');
+    let selectedObject = null;
+    let editableIdCounter = 1;
+    let isNightMode = false;
+
+    // --- ОТРАЖЕНИЯ ---
+    const reflectionResolution = 512;
+    const reflectionNear = 0.1;
+    const reflectionFar = 300;
+    const reflectionWorldPos = new THREE.Vector3();
+    let reflectiveSpheres = [];
+
+    function createReflectionProbe() {
+        const renderTarget = new THREE.WebGLCubeRenderTarget(reflectionResolution, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+        const cam = new THREE.CubeCamera(reflectionNear, reflectionFar, renderTarget);
+        scene.add(cam);
+        return { renderTarget, camera: cam };
+    }
+
+    function registerReflectiveSphere(mesh) {
+        if(isReflectiveSphere(mesh)) return;
+        const probe = createReflectionProbe();
+        mesh.material.envMap = probe.renderTarget.texture;
+        mesh.material.needsUpdate = true;
+        mesh.userData.isReflective = true;
+        reflectiveSpheres.push({ mesh, camera: probe.camera });
+    }
+
+    function unregisterReflectiveSphere(mesh) {
+        const index = reflectiveSpheres.findIndex((entry) => entry.mesh === mesh);
+        if (index === -1) return;
+        const entry = reflectiveSpheres[index];
+        scene.remove(entry.camera);
+        if (entry.camera.renderTarget) entry.camera.renderTarget.dispose();
+        if (mesh.material && mesh.material.envMap) {
+            mesh.material.envMap = null;
+            mesh.material.needsUpdate = true;
+        }
+        mesh.userData.isReflective = false;
+        reflectiveSpheres.splice(index, 1);
+    }
+
+    function isReflectiveSphere(mesh) { return reflectiveSpheres.some((entry) => entry.mesh === mesh); }
+
+    // --- ИНТЕРФЕЙС И ВЫДЕЛЕНИЕ ---
+    function updateObjectDropdown() {
+        const sel = document.getElementById('object-selector');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">-- Ничего не выбрано --</option>';
+        editableObjects.forEach((obj) => {
+            const opt = document.createElement('option');
+            opt.value = obj.userData.idStr; 
+            opt.textContent = obj.userData.editName;
+            if (selectedObject === obj) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    function selectFromDropdown(idStr) {
+        if (!idStr) { setSelectedObject(null); return; }
+        const obj = editableObjects.find(o => o.userData.idStr === idStr);
+        setSelectedObject(obj || null);
+    }
+
+    function updateEditorUi() {
+        const selectedName = selectedObject ? selectedObject.userData.editName : 'Ничего не выбрано';
+        uiElement.textContent = `[ESC] Меню/Мышь | Выбран: ${selectedName}`;
+        if (selectedObject && selectedObject.material && selectedObject.material.color) {
+            document.getElementById('ui-obj-color').value = '#' + selectedObject.material.color.getHexString();
+        }
+        updateObjectDropdown();
+    }
+
+    function setSelectionHighlight(mesh, enabled) {
+        if (!mesh || !mesh.material || Array.isArray(mesh.material)) return;
+        const mat = mesh.material;
+        if (!mat.emissive) return;
+        if (enabled) {
+            mesh.userData.prevEmissiveHex = mat.emissive.getHex();
+            mat.emissive.setHex(0x334411);
+        } else if (mesh.userData.prevEmissiveHex !== undefined) {
+            mat.emissive.setHex(mesh.userData.prevEmissiveHex);
+        }
+    }
+
+    function setSelectedObject(mesh) {
+        if (selectedObject === mesh) return;
+        setSelectionHighlight(selectedObject, false);
+        selectedObject = mesh;
+        setSelectionHighlight(selectedObject, true);
+        updateEditorUi();
+    }
+
+    function registerEditableObject(mesh, name, type) {
+        const idStr = `obj_${editableIdCounter++}`;
+        if(!mesh.userData) mesh.userData = {};
+        mesh.userData.editName = `${name} [${idStr}]`;
+        mesh.userData.idStr = idStr;
+        mesh.userData.objType = type;
+        
+        if(mesh.userData.hasMoire === undefined) mesh.userData.hasMoire = false;
+        if(mesh.userData.isChecker === undefined) mesh.userData.isChecker = false;
+        if(mesh.userData.isReflective === undefined) mesh.userData.isReflective = false;
+        if(mesh.userData.customTextureData === undefined) mesh.userData.customTextureData = null;
+
+        editableObjects.push(mesh);
+        collisionObjects.push(mesh);
+        updateObjectDropdown();
+    }
+
+    function unregisterEditableObject(mesh) {
+        const editIndex = editableObjects.indexOf(mesh);
+        if (editIndex >= 0) editableObjects.splice(editIndex, 1);
+        const collisionIndex = collisionObjects.indexOf(mesh);
+        if (collisionIndex >= 0) collisionObjects.splice(collisionIndex, 1);
+        updateObjectDropdown();
+    }
+
+    function selectObjectUnderCrosshair() {
+        const activeCam = (cameraMode === 2) ? frontCamera : camera;
+        raycaster.setFromCamera(screenCenter, activeCam);
+        const intersections = raycaster.intersectObjects(editableObjects, false);
+        setSelectedObject(intersections.length > 0 ? intersections[0].object : null);
+    }
+
+    // --- ФУНКЦИИ ЛЕВОЙ ПАНЕЛИ ---
+    function toggleDayNight() {
+        playActionSound();
+        isNightMode = !isNightMode;
+        if (isNightMode) {
+            scene.background.setHex(0x050515); scene.fog.color.setHex(0x050515);
+            dirLight.intensity = 0.1; ambientLight.intensity = 0.1;
+        } else {
+            scene.background.setHex(0xA7B7FF); scene.fog.color.setHex(0xA7B7FF);
+            dirLight.intensity = 1.2; ambientLight.intensity = 0.2;
+        }
+    }
+
+    function uiTransform(type, axis, dir) {
+        playActionSound();
+        if (!selectedObject) return;
+        if (type === 'move') {
+            if (axis === 'x') selectedObject.position.x += dir;
+            if (axis === 'y') selectedObject.position.y += dir;
+            if (axis === 'z') selectedObject.position.z += dir;
+        } else if (type === 'rot') {
+            const step = Math.PI / 12; 
+            if (axis === 'x') selectedObject.rotation.x += dir * step;
+            if (axis === 'y') selectedObject.rotation.y += dir * step;
+            if (axis === 'z') selectedObject.rotation.z += dir * step;
+        } else if (type === 'scale') {
+            const step = 0.2;
+            if (axis === 'x') selectedObject.scale.x = Math.max(0.1, selectedObject.scale.x + dir * step);
+            if (axis === 'y') selectedObject.scale.y = Math.max(0.1, selectedObject.scale.y + dir * step);
+            if (axis === 'z') selectedObject.scale.z = Math.max(0.1, selectedObject.scale.z + dir * step);
+        }
+    }
+
+    function applyColorToSelected(hexValue) {
+        playActionSound();
+        if (!selectedObject || !selectedObject.material) return;
+        if (selectedObject.material.map && !selectedObject.userData.hasMoire) selectedObject.material.map = null;
+        selectedObject.material.color.set(hexValue);
+        selectedObject.material.needsUpdate = true;
+        selectedObject.userData.isChecker = false;
+        selectedObject.userData.hasMoire = false;
+        selectedObject.userData.customTextureData = null; 
+    }
+
+    function applyTextureToSelected(event) {
+        playActionSound();
+        if (!selectedObject || !selectedObject.material) return;
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image(); img.src = e.target.result;
+            img.onload = function() {
+                const tex = new THREE.Texture(img); tex.needsUpdate = true;
+                selectedObject.material.color.setHex(0xffffff); 
+                selectedObject.material.map = tex;
+                selectedObject.material.needsUpdate = true;
+                selectedObject.userData.hasMoire = false;
+                selectedObject.userData.isChecker = false;
+                selectedObject.userData.customTextureData = e.target.result;
+            }
+        }; reader.readAsDataURL(file);
+    }
+
+    function applyCheckerboardToSelected() {
+        playActionSound();
+        if (!selectedObject || !selectedObject.material) return;
+        selectedObject.material.color.setHex(0xffffff);
+        selectedObject.material.map = createCheckerboard();
+        selectedObject.material.needsUpdate = true;
+        selectedObject.userData.isChecker = true;
+        selectedObject.userData.hasMoire = false;
+        selectedObject.userData.customTextureData = null;
+    }
+
+    function toggleMoireOnSelected() {
+        playActionSound();
+        if (!selectedObject || !selectedObject.material) return;
+        if (selectedObject.userData.hasMoire) {
+            selectedObject.material.map = null;
+            selectedObject.userData.hasMoire = false;
+        } else {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128; const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,128,128); ctx.fillStyle = '#000000';
+            for(let i=0; i<128; i+=2) { ctx.fillRect(i, 0, 1, 128); }
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(80, 80); 
+            tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+            selectedObject.material.color.setHex(0xffffff);
+            selectedObject.material.map = tex;
+            selectedObject.userData.hasMoire = true;
+            selectedObject.userData.isChecker = false;
+            selectedObject.userData.customTextureData = null;
+        }
+        selectedObject.material.needsUpdate = true;
+    }
+
+    function scaleSelectedObject(factor) {
+        playActionSound();
+        if (!selectedObject) return;
+        selectedObject.scale.multiplyScalar(factor);
+        selectedObject.scale.x = THREE.MathUtils.clamp(selectedObject.scale.x, 0.1, 16);
+        selectedObject.scale.y = THREE.MathUtils.clamp(selectedObject.scale.y, 0.1, 16);
+        selectedObject.scale.z = THREE.MathUtils.clamp(selectedObject.scale.z, 0.1, 16);
+    }
+
+    function toggleSelectedMirror() {
+        playActionSound();
+        if (!selectedObject) return;
+        if (isReflectiveSphere(selectedObject)) {
+            unregisterReflectiveSphere(selectedObject);
+            if (selectedObject.material) {
+                selectedObject.material.reflectivity = 0; selectedObject.material.shininess = 30; selectedObject.material.needsUpdate = true;
+            }
+        } else {
+            registerReflectiveSphere(selectedObject);
+            if (selectedObject.material) {
+                if (selectedObject.material.color) selectedObject.material.color.setHex(0xffffff);
+                selectedObject.material.side = THREE.DoubleSide;
+                selectedObject.material.reflectivity = 0.9; selectedObject.material.shininess = 100; selectedObject.material.needsUpdate = true;
+            }
+        }
+    }
+
+
+
+// --- ЗАПИСЬ ВИДЕО И ЗВУКА ---
+let mediaRecorder;
+let recordedChunks = [];
+let isRecording = false;
+let audioCtx, audioDest;
+let audioInitialized = false;
+let canRecordAudio = false; // Флаг: можно ли безопасно писать звук
+
+function initAudioCapture() {
+    if (audioInitialized) return;
+    audioInitialized = true;
+    
+    // Проверяем, как запущена игра
+    const isLocalFile = window.location.protocol === 'file:';
+    if (isLocalFile) {
+        console.warn("Локальный запуск (file://). Запись будет БЕЗ звука, чтобы видео не сломалось.");
+        canRecordAudio = false;
+        return; // Полностью отключаем маршрутизацию звука для локальных файлов
+    }
+
+    try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioDest = audioCtx.createMediaStreamDestination();
+
+        function routeAudio(audioObj) {
+            const source = audioCtx.createMediaElementSource(audioObj);
+            source.connect(audioCtx.destination); // В динамики
+            source.connect(audioDest);            // В видео
+        }
+
+        routeAudio(sndStart);
+        routeAudio(sndPlace);
+        routeAudio(sndBreak);
+        routeAudio(sndAction);
+        canRecordAudio = true;
+    } catch (e) {
+        console.warn("Ошибка маршрутизации звука:", e);
+        canRecordAudio = false;
+    }
+}
+
+function toggleRecording() {
+    if (!isRecording) {
+        startRecording();
+    } else {
+        stopRecording();
+    }
+}
+
+function startRecording() {
+    // 1. Берем видео с Canvas
+    const canvasStream = renderer.domElement.captureStream(60);
+    const tracks = [...canvasStream.getVideoTracks()];
+
+    // 2. Добавляем звук, ТОЛЬКО если это безопасно (не file:// и нет ошибок)
+    if (canRecordAudio && audioDest && audioCtx && audioCtx.state !== 'suspended') {
+        tracks.push(...audioDest.stream.getAudioTracks());
+    }
+
+    // 3. Собираем итоговый поток
+    const combinedStream = new MediaStream(tracks);
+
+    // Выбираем кодек (vp8 работает стабильнее для Canvas, чем vp9)
+    let options = { mimeType: 'video/webm; codecs=vp8' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm' };
+    }
+
+    mediaRecorder = new MediaRecorder(combinedStream, options);
+    recordedChunks = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+            recordedChunks.push(e.data);
+        }
+    };
+
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'Ventra3D_Gameplay.webm';
+        document.body.appendChild(a);
+        a.click();
+        
+        // Даем браузеру время на скачивание перед удалением ссылки
+        setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }, 100);
+    };
+
+    // ВАЖНО: передаем 100мс. Браузер будет сохранять кадры каждые 100 миллисекунд.
+    // Это гарантирует, что файл не будет "пустым битым заголовком"
+    mediaRecorder.start(100); 
+    isRecording = true;
+    document.getElementById('rec-indicator').style.display = 'block';
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        isRecording = false;
+        document.getElementById('rec-indicator').style.display = 'none';
+    }
+}
+
+    function cloneSelectedObject() {
+        playActionSound();
+        if (!selectedObject) return;
+        const clone = selectedObject.clone();
+        
+        if (selectedObject.material && !Array.isArray(selectedObject.material)) {
+            clone.material = selectedObject.material.clone();
+        }
+        
+        clone.position.add(new THREE.Vector3(1.5, 0, 1.5));
+        addShadows(clone); scene.add(clone);
+        
+        clone.userData = JSON.parse(JSON.stringify(selectedObject.userData));
+        let baseName = selectedObject.userData.editName || 'Copy';
+        baseName = baseName.split(' [')[0]; 
+        
+        registerEditableObject(clone, baseName + ' Copy', clone.userData.objType);
+        if (clone.userData.isReflective) registerReflectiveSphere(clone);
+        
+        if (clone.userData.customTextureData) {
+            const img = new Image();
+            img.src = clone.userData.customTextureData;
+            img.onload = function() {
+                const tex = new THREE.Texture(img); tex.needsUpdate = true;
+                clone.material.map = tex; clone.material.needsUpdate = true;
+            };
+        }
+        setSelectedObject(clone);
+        playSound(sndPlace);
+    }
+
+    function deleteSelectedObject() {
+        playActionSound();
+        if (!selectedObject) return;
+        const meshToRemove = selectedObject;
+        setSelectedObject(null);
+        unregisterReflectiveSphere(meshToRemove);
+        unregisterEditableObject(meshToRemove);
+        scene.remove(meshToRemove);
+        playSound(sndBreak);
+    }
+
+    // --- ФУНКЦИЯ СОЗДАНИЯ ОБЪЕКТОВ ---
+    function spawnObject(type, doNotPlace = false) {
+        if (!doNotPlace) playActionSound();
+        let geo, mat, isMirror = false;
+        
+        switch(type) {
+            case 'sphere': geo = new THREE.SphereGeometry(3, 16, 16); mat = new THREE.MeshPhongMaterial({ color: 0xffffff, reflectivity: 0.9, shininess: 100 }); isMirror = true; break;
+            case 'normal_sphere': geo = new THREE.SphereGeometry(2, 16, 16); break;
+            case 'cone': geo = new THREE.ConeGeometry(1.5, 3, 16); break;
+            case 'cube': geo = new THREE.BoxGeometry(3.5, 3.5, 3.5); break;
+            case 'cylinder': geo = new THREE.CylinderGeometry(0.8, 0.8, 2, 8); break;
+            case 'triangle': geo = new THREE.TetrahedronGeometry(1.5); break;
+            case 'trapezoid': geo = new THREE.CylinderGeometry(0.5, 1.2, 1.5, 4); break;
+            case 'icosahedron': geo = new THREE.IcosahedronGeometry(1.2); break;
+            default: geo = new THREE.BoxGeometry(3.5, 3.5, 3.5); type = 'cube'; break; 
+        }
+        
+        if (!mat) mat = new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff, flatShading: true });
+        const mesh = new THREE.Mesh(geo, mat);
+        addShadows(mesh);
+        
+        if (!doNotPlace) {
+            const dir = new THREE.Vector3(); camera.getWorldDirection(dir); 
+            const spawnPos = camera.position.clone().add(dir.multiplyScalar(8)); 
+            if (spawnPos.y < 1.5) spawnPos.y = 1.5; 
+            mesh.position.copy(spawnPos); mesh.rotation.set(0, 0, 0);
+            playSound(sndPlace);
+        }
+
+        scene.add(mesh);
+        if (isMirror) registerReflectiveSphere(mesh);
+        registerEditableObject(mesh, type === 'normal_sphere' ? 'SPHERE' : type.toUpperCase(), type);
+        
+        if (!doNotPlace) setSelectedObject(mesh);
+        return mesh;
+    }
+
+    function spawn3DTextParams(textStr, size, colorHex, isReflective, fontKey, doNotPlace = false) {
+        const font = loadedFonts[fontKey];
+        if (!font) { alert("Шрифт еще не загрузился!"); return null; }
+        const textGeo = new THREE.TextGeometry(textStr, { font: font, size: size, height: size * 0.2, curveSegments: 4, bevelEnabled: false });
+        textGeo.computeBoundingBox(); textGeo.center(); 
+
+        const matOptions = { color: colorHex, flatShading: true };
+        if (isReflective) { matOptions.reflectivity = 0.9; matOptions.shininess = 100; }
+        const mat = new THREE.MeshPhongMaterial(matOptions);
+        const mesh = new THREE.Mesh(textGeo, mat);
+        addShadows(mesh);
+
+        if (!doNotPlace) {
+            const dir = new THREE.Vector3(); camera.getWorldDirection(dir); 
+            const spawnPos = camera.position.clone().add(dir.multiplyScalar(8)); 
+            if (spawnPos.y < 1.5) spawnPos.y = 1.5; 
+            mesh.position.copy(spawnPos);
+            playSound(sndPlace);
+        }
+
+        scene.add(mesh);
+        if (isReflective) registerReflectiveSphere(mesh);
+        registerEditableObject(mesh, 'Текст: ' + textStr, 'text');
+        
+        mesh.userData.textStr = textStr;
+        mesh.userData.textSize = size;
+        mesh.userData.textFont = fontKey;
+        if(isReflective) mesh.userData.isReflective = true;
+
+        if (!doNotPlace) setSelectedObject(mesh);
+        return mesh;
+    }
+
+    function spawn3DText() {
+        playActionSound();
+        spawn3DTextParams(
+            document.getElementById('ui-text-input').value || "TEXT",
+            parseFloat(document.getElementById('ui-text-size').value) || 1.5,
+            document.getElementById('ui-text-color').value,
+            document.getElementById('ui-text-reflect').checked,
+            document.getElementById('ui-text-font').value
+        );
+    }
+
+    // --- СОХРАНЕНИЕ И ЗАГРУЗКА ---
+    function saveWorld() {
+        playActionSound();
+        const data = { settings: { isNightMode }, objects: [] };
+        
+        editableObjects.forEach(obj => {
+            data.objects.push({
+                type: obj.userData.objType || 'cube',
+                position: obj.position.toArray(),
+                rotation: obj.rotation.toArray(),
+                scale: obj.scale.toArray(),
+                color: obj.material && obj.material.color ? obj.material.color.getHex() : 0xffffff,
+                hasMoire: obj.userData.hasMoire || false,
+                isReflective: obj.userData.isReflective || false,
+                isChecker: obj.userData.isChecker || false,
+                customTextureData: obj.userData.customTextureData || null,
+                textStr: obj.userData.textStr || '',
+                textSize: obj.userData.textSize || 1.5,
+                textFont: obj.userData.textFont || 'helvetiker'
+            });
+        });
+
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'world_save.json'; a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function loadWorld(e) {
+        playActionSound();
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            try {
+                const data = JSON.parse(evt.target.result);
+                
+                const objsToDel = [...editableObjects];
+                objsToDel.forEach(obj => { setSelectedObject(obj); deleteSelectedObject(); });
+                
+                if (data.settings && data.settings.isNightMode !== undefined) {
+                    if (isNightMode !== data.settings.isNightMode) toggleDayNight(); 
+                }
+                
+                if (data.objects) {
+                    data.objects.forEach(o => {
+                        let mesh;
+                        if (o.type === 'text') {
+                            mesh = spawn3DTextParams(o.textStr, o.textSize, o.color, o.isReflective, o.textFont, true);
+                        } else {
+                            mesh = spawnObject(o.type, true);
+                        }
+                        
+                        if (mesh) {
+                            mesh.position.fromArray(o.position);
+                            mesh.rotation.fromArray(o.rotation.slice(0,3));
+                            mesh.scale.fromArray(o.scale);
+                            
+                            if (mesh.material && mesh.material.color) mesh.material.color.setHex(o.color);
+                            if (o.isReflective) registerReflectiveSphere(mesh);
+                            
+                            if (o.isChecker) {
+                                setSelectedObject(mesh); applyCheckerboardToSelected();
+                            } else if (o.hasMoire) {
+                                setSelectedObject(mesh); mesh.userData.hasMoire = false; toggleMoireOnSelected();
+                            } else if (o.customTextureData) {
+                                const img = new Image(); img.src = o.customTextureData;
+                                img.onload = function() {
+                                    const tex = new THREE.Texture(img); tex.needsUpdate = true;
+                                    mesh.material.map = tex; mesh.material.needsUpdate = true;
+                                };
+                                mesh.userData.customTextureData = o.customTextureData;
+                            }
+                        }
+                    });
+                }
+                setSelectedObject(null);
+            } catch(err) { alert("Ошибка загрузки файла сохранения!"); console.error(err); }
+        };
+        reader.readAsText(file); e.target.value = '';
+    }
+
+    // --- ПОЛ ---
+    function createCheckerboard() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 64; const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FF00FF'; ctx.fillRect(0, 0, 32, 32); ctx.fillRect(32, 32, 32, 32);
+        ctx.fillStyle = '#000000'; ctx.fillRect(32, 0, 32, 32); ctx.fillRect(0, 32, 32, 32);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(50, 50); tex.magFilter = THREE.NearestFilter; 
+        return tex;
+    }
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshPhongMaterial({ map: createCheckerboard(), flatShading: true, shininess: 0 }));
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+    // --- ИГРОК И МОДЕЛЬ ---
+    const playerRoot = new THREE.Group(); scene.add(playerRoot);
+    const playerModel = new THREE.Group(); playerRoot.add(playerModel);
+    const playerRadius = 0.8; const playerHeight = 3.5;
+
+    const creamMat = new THREE.MeshPhongMaterial({ color: 0xFFF2D1, flatShading: true }); 
+    const brownMat = new THREE.MeshPhongMaterial({ color: 0x4A2E1B, flatShading: true }); 
+    const orangeTailMat = new THREE.MeshPhongMaterial({ color: 0xC47539, flatShading: true }); 
+    const waffleMat = new THREE.MeshPhongMaterial({ color: 0xDFA265, flatShading: true }); 
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xFFD700 }); 
+
+    function addShadows(mesh) { mesh.castShadow = true; mesh.receiveShadow = true; }
+
+    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.8, 0.5), creamMat); legL.position.set(-0.35, 0.4, 0); addShadows(legL); playerModel.add(legL);
+    const legR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.8, 0.5), creamMat); legR.position.set(0.35, 0.4, 0); addShadows(legR); playerModel.add(legR);
+    const footL = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 0.6), brownMat); footL.position.set(-0.35, 0.125, -0.05); addShadows(footL); playerModel.add(footL);
+    const footR = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.25, 0.6), brownMat); footR.position.set(0.35, 0.125, -0.05); addShadows(footR); playerModel.add(footR);
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.4, 0.9), creamMat); torso.position.set(0, 1.5, 0); addShadows(torso); playerModel.add(torso);
+    const scarf = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.4, 1.1), brownMat); scarf.position.set(0, 2.3, 0); addShadows(scarf); playerModel.add(scarf);
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.0, 0.4), creamMat); armL.position.set(-0.8, 1.6, 0); armL.rotation.z = 0.2; addShadows(armL); playerModel.add(armL);
+    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.0, 0.4), creamMat); armR.position.set(0.8, 1.6, 0); armR.rotation.z = -0.2; addShadows(armR); playerModel.add(armR);
+    const pawL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.3, 0.45), brownMat); pawL.position.set(-0.9, 1.0, 0); pawL.rotation.z = 0.2; addShadows(pawL); playerModel.add(pawL);
+    const pawR = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.3, 0.45), brownMat); pawR.position.set(0.9, 1.0, 0); pawR.rotation.z = -0.2; addShadows(pawR); playerModel.add(pawR);
+
+    const headGroup = new THREE.Group(); headGroup.position.set(0, 3.0, 0); playerModel.add(headGroup);
+    const headBase = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.1, 1.2), creamMat); addShadows(headBase); headGroup.add(headBase);
+    for(let i=0; i<3; i++) {
+        const cheekL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), creamMat); cheekL.position.set(-0.8, -0.3 + i*0.25, 0); cheekL.rotation.z = Math.PI/4; addShadows(cheekL); headGroup.add(cheekL);
+        const cheekR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), creamMat); cheekR.position.set(0.8, -0.3 + i*0.25, 0); cheekR.rotation.z = Math.PI/4; addShadows(cheekR); headGroup.add(cheekR);
+    }
+    const chocBase = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.3, 1.3), brownMat); chocBase.position.set(0, 0.6, 0); addShadows(chocBase); headGroup.add(chocBase);
+    const drip1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.3, 0.2), brownMat); drip1.position.set(-0.6, 0.4, 0.6); addShadows(drip1); headGroup.add(drip1);
+    const drip2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.2), brownMat); drip2.position.set(0.5, 0.4, -0.6); addShadows(drip2); headGroup.add(drip2);
+    const earL = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.0, 4), waffleMat); earL.position.set(-0.5, 1.1, 0); earL.rotation.set(0, Math.PI/4, 0.3); addShadows(earL); headGroup.add(earL);
+    const earR = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5, 4), waffleMat); earR.position.set(0.5, 1.3, 0); earR.rotation.set(0, Math.PI/4, -0.2); addShadows(earR); headGroup.add(earR);
+    const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.1), eyeMat); eyeL.position.set(-0.35, 0.1, -0.61); headGroup.add(eyeL);
+    const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.1), eyeMat); eyeR.position.set(0.35, 0.1, -0.61); headGroup.add(eyeR);
+
+    const tailGroup = new THREE.Group(); tailGroup.position.set(0, 1.2, 0.5); playerModel.add(tailGroup);
+    const tail1 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), creamMat); tail1.position.set(-0.4, 0, 0.6); tail1.rotation.set(0.2, -0.2, 0); addShadows(tail1); tailGroup.add(tail1);
+    const tail2 = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.0, 2.0), orangeTailMat); tail2.position.set(-1.2, 0.2, 1.4); tail2.rotation.set(0.4, -0.5, 0.2); addShadows(tail2); tailGroup.add(tail2);
+    const tail3 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 2.0), brownMat); tail3.position.set(-2.2, 0.5, 2.4); tail3.rotation.set(0.6, -0.8, 0.4); addShadows(tail3); tailGroup.add(tail3);
+
+    // --- УПРАВЛЕНИЕ ---
+    const controls = new THREE.PointerLockControls(camera, renderer.domElement);
+    const startScreen = document.getElementById('start-screen');
+    let cameraMode = 1;
+
+    startScreen.addEventListener('click', () => { 
+    initAudioCapture(); // Включаем захват аудио
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    playSound(sndStart); 
+    controls.lock(); 
+});
+    controls.addEventListener('lock', () => { startScreen.style.display = 'none'; updateEditorUi(); });
+    controls.addEventListener('unlock', () => startScreen.style.display = 'flex');
+
+    const keys = { w: false, a: false, s: false, d: false, space: false, shift: false };
+    
+    document.addEventListener('keydown', (e) => {
+        if(e.code === 'F4') { e.preventDefault(); const p = document.getElementById('left-panel'); p.style.display = p.style.display==='none'?'block':'none'; }
+        if(e.code === 'F6') { e.preventDefault(); const ui = document.getElementById('ui'); ui.style.display = ui.style.display==='none'?'block':'none'; }
+        
+        if (!controls.isLocked) return; 
+        
+        if(e.code === 'KeyW') keys.w = true;
+        if(e.code === 'KeyS') keys.s = true;
+        if(e.code === 'KeyA') keys.a = true;
+        if(e.code === 'KeyD') keys.d = true;
+        if(e.code === 'Space') keys.space = true;
+        if(e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = true;
+        
+if(e.code === 'KeyM') {
+            e.preventDefault();
+            toggleRecording();
+        }
+
+
+        if(e.code === 'F5') { 
+            e.preventDefault(); 
+            cameraMode = (cameraMode + 1) % 3; 
+            document.getElementById('crosshair').style.display = (cameraMode === 0) ? 'block' : 'none';
+        }
+
+        if(e.code === 'Digit1') spawnObject('cube');
+        if(e.code === 'Digit2') spawnObject('sphere');
+        if(e.code === 'Digit3') spawnObject('cylinder');
+        if(e.code === 'Digit4') spawnObject('triangle');
+        if(e.code === 'Digit5') spawnObject('trapezoid');
+        if(e.code === 'Digit6') spawnObject('icosahedron');
+
+        if (e.code === 'KeyE') selectObjectUnderCrosshair();
+        if (e.code === 'KeyQ') setSelectedObject(null);
+        if (e.code === 'Delete' || e.code === 'Backspace') { e.preventDefault(); deleteSelectedObject(); }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if(e.code === 'KeyW') keys.w = false;
+        if(e.code === 'KeyS') keys.s = false;
+        if(e.code === 'KeyA') keys.a = false;
+        if(e.code === 'KeyD') keys.d = false;
+        if(e.code === 'Space') keys.space = false;
+        if(e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.shift = false;
+    });
+
+    // --- КОЛЛИЗИИ ---
+    const _triA = new THREE.Vector3(); const _triB = new THREE.Vector3(); const _triC = new THREE.Vector3();
+    const _closestPoint = new THREE.Vector3(); const _triangle = new THREE.Triangle();
+
+    function sphereIntersectsMesh(mesh, sphereCenter, sphereRadius) {
+        if (!mesh.geometry || !mesh.geometry.attributes || !mesh.geometry.attributes.position) return false;
+        const geometry = mesh.geometry; const pos = geometry.attributes.position; const idx = geometry.index;
+        const world = mesh.matrixWorld; const safeRadius = Math.max(0.05, sphereRadius - 0.08); const r2 = safeRadius * safeRadius;
+        mesh.updateMatrixWorld(true);
+
+        if (idx) {
+            for (let i = 0; i < idx.count; i += 3) {
+                _triA.fromBufferAttribute(pos, idx.getX(i)).applyMatrix4(world); _triB.fromBufferAttribute(pos, idx.getX(i + 1)).applyMatrix4(world); _triC.fromBufferAttribute(pos, idx.getX(i + 2)).applyMatrix4(world);
+                _triangle.set(_triA, _triB, _triC); _triangle.closestPointToPoint(sphereCenter, _closestPoint);
+                if (_closestPoint.distanceToSquared(sphereCenter) <= r2) return true;
+            } return false;
+        }
+
+        for (let i = 0; i < pos.count; i += 3) {
+            _triA.fromBufferAttribute(pos, i).applyMatrix4(world); _triB.fromBufferAttribute(pos, i + 1).applyMatrix4(world); _triC.fromBufferAttribute(pos, i + 2).applyMatrix4(world);
+            _triangle.set(_triA, _triB, _triC); _triangle.closestPointToPoint(sphereCenter, _closestPoint);
+            if (_closestPoint.distanceToSquared(sphereCenter) <= r2) return true;
+        } return false;
+    }
+
+    function checkCollision(x, y, z) {
+        const sampleSpheres = [ new THREE.Vector3(x, y + playerRadius, z), new THREE.Vector3(x, y + playerHeight * 0.45, z), new THREE.Vector3(x, y + playerHeight * 0.8, z) ];
+        for (let i = 0; i < collisionObjects.length; i++) {
+            const mesh = collisionObjects[i]; if (!mesh.visible) continue;
+            for (let s = 0; s < sampleSpheres.length; s++) { if (sphereIntersectsMesh(mesh, sampleSpheres[s], playerRadius)) return true; }
+        } return false;
+    }
+
+    function movePlayerWithCollision(dx, dy, dz) {
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const steps = Math.max(1, Math.ceil(distance / 0.25));
+        const stepX = dx / steps; const stepY = dy / steps; const stepZ = dz / steps;
+
+        for (let i = 0; i < steps; i++) {
+            const tryX = playerRoot.position.x + stepX; const tryY = playerRoot.position.y + stepY; const tryZ = playerRoot.position.z + stepZ;
+            if (!checkCollision(tryX, tryY, tryZ)) { playerRoot.position.set(tryX, tryY, tryZ); continue; }
+            if (!checkCollision(tryX, playerRoot.position.y, playerRoot.position.z)) playerRoot.position.x = tryX;
+            if (!checkCollision(playerRoot.position.x, playerRoot.position.y, tryZ)) playerRoot.position.z = tryZ;
+            if (!checkCollision(playerRoot.position.x, tryY, playerRoot.position.z)) playerRoot.position.y = tryY;
+        }
+    }
+
+    // --- ИГРОВОЙ ЦИКЛ ---
+    const clock = new THREE.Clock();
+    const speed = 12; const flySpeed = 10;
+    const firstPersonEyeLocal = new THREE.Vector3(0, 3.1, -0.61);
+    const worldUpAxis = new THREE.Vector3(0, 1, 0);
+    const firstPersonEyeWorld = new THREE.Vector3();
+
+    playerRoot.position.set(0, 0, 8); 
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+        let hidePlayerForMainView = false;
+        let renderCamera = camera;
+
+        if (controls.isLocked) {
+            const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir); camDir.y = 0; camDir.normalize(); 
+            const camRight = new THREE.Vector3(); camRight.crossVectors(camDir, new THREE.Vector3(0, 1, 0)).normalize(); 
+            const moveVec = new THREE.Vector3(0, 0, 0);
+
+            if (keys.w) moveVec.add(camDir);
+            if (keys.s) moveVec.sub(camDir);
+            if (keys.a) moveVec.sub(camRight); 
+            if (keys.d) moveVec.add(camRight); 
+            if (moveVec.lengthSq() > 0) moveVec.normalize();
+
+            const moveX = moveVec.x * speed * delta;
+            const moveZ = moveVec.z * speed * delta;
+            let moveY = 0;
+            if (keys.space) moveY += flySpeed * delta;
+            if (keys.shift) moveY -= flySpeed * delta;
+
+            movePlayerWithCollision(moveX, moveY, moveZ);
+            if (playerRoot.position.y < 0) playerRoot.position.y = 0;
+
+            const headPosition = playerRoot.position.clone().add(new THREE.Vector3(0, 3.1, 0)); // Строго уровень головы!
+            const backDir = new THREE.Vector3(); camera.getWorldDirection(backDir);
+            const euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.setFromQuaternion(camera.quaternion); 
+
+            if (cameraMode === 1) { 
+                camera.position.copy(headPosition).addScaledVector(backDir, -8); 
+                playerModel.visible = true;
+                playerModel.rotation.y = euler.y;
+                renderCamera = camera;
+            } else if (cameraMode === 2) { 
+                frontCamera.position.copy(headPosition).addScaledVector(backDir, 8); 
+                frontCamera.lookAt(headPosition);
+                camera.position.copy(headPosition); 
+                playerModel.visible = true;
+                playerModel.rotation.y = euler.y; 
+                renderCamera = frontCamera;
+            } else { 
+                playerModel.rotation.y = euler.y;
+                firstPersonEyeWorld.copy(firstPersonEyeLocal).applyAxisAngle(worldUpAxis, playerModel.rotation.y);
+                camera.position.copy(playerRoot.position).add(firstPersonEyeWorld);
+                hidePlayerForMainView = true; 
+                renderCamera = camera;
+            }
+        }
+
+        if (reflectiveSpheres.length > 0) {
+            const previousPlayerVisibility = playerModel.visible;
+            playerModel.visible = true; 
+            for (let i = 0; i < reflectiveSpheres.length; i++) {
+                const reflective = reflectiveSpheres[i]; const activeSphere = reflective.mesh;
+                if (!activeSphere.visible) continue;
+                activeSphere.visible = false; activeSphere.getWorldPosition(reflectionWorldPos);
+                reflective.camera.position.copy(reflectionWorldPos);
+                reflective.camera.update(renderer, scene);
+                activeSphere.visible = true;
+            }
+            playerModel.visible = previousPlayerVisibility;
+        }
+
+        if (hidePlayerForMainView) playerModel.visible = false;
+        renderer.render(scene, renderCamera);
+    }
+
+    animate();
+</script>
+</body>
+</html>
